@@ -8,11 +8,15 @@ use React\EventLoop\LoopInterface;
 /** @event full-drain */
 class Buffer extends EventEmitter implements WritableStreamInterface
 {
-    const CHUNK_LIMIT = 4096;
+    /**
+     * TODO: remove after @link https://bugs.php.net/bug.php?id=72333 is fixed
+     */
+    const SLL_CHUNK_LIMIT = 8192;
 
     public $stream;
     public $listening = false;
     public $softLimit = 65536;
+    public $chunkLimit = null;
     private $writable = true;
     private $loop;
     private $data = '';
@@ -25,6 +29,13 @@ class Buffer extends EventEmitter implements WritableStreamInterface
 
         $this->stream = $stream;
         $this->loop = $loop;
+
+        $meta = stream_get_meta_data($stream);
+        if (isset($meta['blocked']) && !$meta['blocked']) {
+            if (isset($meta['stream_type']) && $meta['stream_type'] === 'tcp_socket/ssl') {
+                $this->chunkLimit = self::SLL_CHUNK_LIMIT;
+            }
+        }
     }
 
     public function isWritable()
@@ -85,7 +96,10 @@ class Buffer extends EventEmitter implements WritableStreamInterface
             );
         });
 
-        $sent = fwrite($this->stream, substr($this->data, 0, self::CHUNK_LIMIT));
+        $sent = fwrite(
+            $this->stream,
+            $this->chunkLimit ? substr($this->data, 0, $this->chunkLimit) : $this->data
+        );
 
         restore_error_handler();
 
