@@ -1,5 +1,8 @@
 {
-    "name": "react/stream",
+    "name": "werkint/reactphp-stream",
+    "replace": {
+        "react/stream": "v0.4.5"
+    },
     "description": "Basic readable and writable stream interfaces that support piping.",
     "keywords": ["stream", "pipe"],
     "license": "MIT",
