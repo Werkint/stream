@@ -8,9 +8,11 @@ use React\EventLoop\LoopInterface;
 /** @event full-drain */
 class Buffer extends EventEmitter implements WritableStreamInterface
 {
+    const CHUNK_LIMIT = 2048;
+
     public $stream;
     public $listening = false;
-    public $softLimit = 2048;
+    public $softLimit = self::CHUNK_LIMIT;
     private $writable = true;
     private $loop;
     private $data = '';
@@ -83,7 +85,18 @@ class Buffer extends EventEmitter implements WritableStreamInterface
 
         set_error_handler(array($this, 'errorHandler'));
 
-        $sent = fwrite($this->stream, $this->data);
+        $sent = false;
+        $left = $total = strlen($this->data);
+        while ($left > 0) {
+            $sent = fwrite($this->stream, substr($this->data, -$left, self::CHUNK_LIMIT));
+            if (!$sent) {
+                break;
+            }
+            $left -= $sent;
+        }
+        if ($left < $total) {
+            $sent = $total - $left;
+        }
 
         restore_error_handler();
 
